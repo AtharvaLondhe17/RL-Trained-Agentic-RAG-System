@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RL Agentic RAG — Intelligent Document Q&A</title>
+    <meta name="description" content="A production-grade Retrieval-Augmented Generation system with self-correcting agent loops and reinforcement learning.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- Background animated gradient mesh -->
+    <div class="bg-mesh"></div>
+    <div class="bg-noise"></div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                            <path d="M14 2L26 8V20L14 26L2 20V8L14 2Z" stroke="url(#logoGrad)" stroke-width="2" fill="none"/>
+                            <circle cx="14" cy="14" r="4" fill="url(#logoGrad)"/>
+                            <defs>
+                                <linearGradient id="logoGrad" x1="2" y1="2" x2="26" y2="26">
+                                    <stop stop-color="#818cf8"/>
+                                    <stop offset="1" stop-color="#c084fc"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <span class="logo-title">Agentic RAG</span>
+                        <span class="logo-subtitle">RL-Powered</span>
+                    </div>
+                </div>
+                <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- System Status -->
+            <div class="sidebar-section">
+                <div class="section-label">System Status</div>
+                <div class="status-card" id="statusCard">
+                    <div class="status-indicator">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span id="statusText">Checking...</span>
+                    </div>
+                    <div class="status-model" id="statusModel">—</div>
+                </div>
+            </div>
+
+            <!-- New Chat -->
+            <div class="sidebar-section">
+                <button class="btn-new-chat" id="btnNewChat">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    New Conversation
+                </button>
+            </div>
+
+            <!-- Sessions -->
+            <div class="sidebar-section session-section">
+                <div class="section-label">Sessions</div>
+                <div class="session-list" id="sessionList">
+                    <!-- Sessions populated by JS -->
+                </div>
+            </div>
+
+            <!-- Document Upload -->
+            <div class="sidebar-section">
+                <div class="section-label">Documents</div>
+                <div class="upload-zone" id="uploadZone">
+                    <input type="file" id="fileInput" multiple accept=".txt,.pdf,.md,.docx" hidden>
+                    <div class="upload-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 16V4m0 0l-4 4m4-4l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <span class="upload-text">Drop files or click</span>
+                    <span class="upload-formats">.txt .pdf .md .docx</span>
+                </div>
+                <div class="upload-status" id="uploadStatus"></div>
+            </div>
+
+            <!-- Agent Pipeline -->
+            <div class="sidebar-section">
+                <div class="section-label">Agent Pipeline</div>
+                <div class="pipeline-steps" id="pipelineSteps">
+                    <div class="pipeline-step" data-step="decompose">
+                        <div class="step-indicator"></div>
+                        <span>Decompose</span>
+                    </div>
+                    <div class="pipeline-connector"></div>
+                    <div class="pipeline-step" data-step="retrieve">
+                        <div class="step-indicator"></div>
+                        <span>Retrieve</span>
+                    </div>
+                    <div class="pipeline-connector"></div>
+                    <div class="pipeline-step" data-step="rerank">
+                        <div class="step-indicator"></div>
+                        <span>Rerank</span>
+                    </div>
+                    <div class="pipeline-connector"></div>
+                    <div class="pipeline-step" data-step="generate">
+                        <div class="step-indicator"></div>
+                        <span>Generate</span>
+                    </div>
+                    <div class="pipeline-connector"></div>
+                    <div class="pipeline-step" data-step="verify">
+                        <div class="step-indicator"></div>
+                        <span>Verify</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="main-header">
+                <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+                <div class="header-info">
+                    <h1 id="headerTitle">New Conversation</h1>
+                    <div class="header-metrics" id="headerMetrics">
+                        <!-- Populated after first query -->
+                    </div>
+                </div>
+            </header>
+
+            <!-- Chat Area -->
+            <div class="chat-area" id="chatArea">
+                <!-- Welcome Screen -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-glow"></div>
+                    <div class="welcome-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <path d="M32 4L60 18V46L32 60L4 46V18L32 4Z" stroke="url(#welcomeGrad)" stroke-width="2" fill="none" opacity="0.3"/>
+                            <path d="M32 12L52 22V42L32 52L12 42V22L32 12Z" stroke="url(#welcomeGrad)" stroke-width="2" fill="none" opacity="0.6"/>
+                            <circle cx="32" cy="32" r="8" fill="url(#welcomeGrad)" opacity="0.8"/>
+                            <defs>
+                                <linearGradient id="welcomeGrad" x1="4" y1="4" x2="60" y2="60">
+                                    <stop stop-color="#818cf8"/>
+                                    <stop offset="0.5" stop-color="#a78bfa"/>
+                                    <stop offset="1" stop-color="#c084fc"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <h2 class="welcome-title">What would you like to know?</h2>
+                    <p class="welcome-subtitle">Ask questions about your ingested documents. The AI agent will retrieve, rerank, and generate answers with citations.</p>
+                    <div class="welcome-suggestions">
+                        <button class="suggestion-chip" data-query="What are the main topics covered in the documents?">
+                            <span class="chip-icon">📚</span> Summarize documents
+                        </button>
+                        <button class="suggestion-chip" data-query="What is retrieval augmented generation and how does it work?">
+                            <span class="chip-icon">🔍</span> Explain RAG
+                        </button>
+                        <button class="suggestion-chip" data-query="What are the key findings or conclusions?">
+                            <span class="chip-icon">💡</span> Key findings
+                        </button>
+                        <button class="suggestion-chip" data-query="Compare and contrast the different approaches discussed.">
+                            <span class="chip-icon">⚖️</span> Compare approaches
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Messages Container -->
+                <div class="messages-container" id="messagesContainer">
+                    <!-- Messages populated by JS -->
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="queryInput" 
+                        placeholder="Ask a question about your documents..." 
+                        rows="1"
+                        aria-label="Query input"
+                    ></textarea>
+                    <button class="btn-send" id="btnSend" aria-label="Send query" disabled>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M18 2L9 11M18 2l-5 16-4-7-7-4 16-5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="input-footer">
+                    <span class="input-hint">Press Enter to send, Shift+Enter for new line</span>
+                    <span class="session-badge" id="sessionBadge">Session: default</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- Metrics Panel (right side, shown after query) -->
+        <aside class="metrics-panel" id="metricsPanel">
+            <div class="metrics-header">
+                <h3>Response Metrics</h3>
+                <button class="btn-close-metrics" id="btnCloseMetrics" aria-label="Close metrics">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Confidence Gauge -->
+            <div class="metric-card">
+                <div class="metric-label">Confidence</div>
+                <div class="gauge-container">
+                    <svg class="gauge" viewBox="0 0 120 120">
+                        <circle class="gauge-bg" cx="60" cy="60" r="52" />
+                        <circle class="gauge-fill" id="gaugeConfidence" cx="60" cy="60" r="52" />
+                    </svg>
+                    <div class="gauge-value" id="gaugeValue">—</div>
+                </div>
+            </div>
+
+            <!-- Reward -->
+            <div class="metric-card">
+                <div class="metric-label">Reward</div>
+                <div class="metric-bar-container">
+                    <div class="metric-bar" id="rewardBar"></div>
+                </div>
+                <div class="metric-value" id="rewardValue">—</div>
+            </div>
+
+            <!-- Retry Count -->
+            <div class="metric-card">
+                <div class="metric-label">Retries</div>
+                <div class="retry-dots" id="retryDots">
+                    <div class="retry-dot"></div>
+                    <div class="retry-dot"></div>
+                    <div class="retry-dot"></div>
+                </div>
+                <div class="metric-value" id="retryValue">0 / 3</div>
+            </div>
+
+            <!-- Citations -->
+            <div class="metric-card">
+                <div class="metric-label">Citations</div>
+                <div class="citation-list" id="citationList">
+                    <span class="no-data">No citations yet</span>
+                </div>
+            </div>
+
+            <!-- Route -->
+            <div class="metric-card">
+                <div class="metric-label">Route Used</div>
+                <div class="route-badge" id="routeBadge">—</div>
+            </div>
+        </aside>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
