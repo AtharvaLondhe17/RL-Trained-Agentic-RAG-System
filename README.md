@@ -1,6 +1,6 @@
 # RL-Trained Agentic RAG System
 
-> A production-grade Retrieval-Augmented Generation system with self-correcting agent loops and DSPy prompt optimization (Stanford NLP) — built entirely with free and open-source tools.
+> A production-grade Retrieval-Augmented Generation system with self-correcting agent loops and automated prompt optimization — built entirely with free and open-source tools.
 
 ## Architecture
 
@@ -15,13 +15,13 @@
 │                                                          │
 │  ┌───────────┐   ┌──────────┐   ┌────────┐              │
 │  │ Decompose │──▶│ Retrieve │──▶│ Rerank │              │
-│  │  (Gemini) │   │(Hybrid)  │   │(Cross- │              │
-│  └───────────┘   │BM25+Dense│   │Encoder)│              │
+│  │   (LLM)   │   │ (Hybrid) │   │(Neural)│              │
+│  └───────────┘   │Sparse+Vec│   │        │              │
 │                  └──────────┘   └───┬────┘              │
 │                                     │                    │
 │                  ┌──────────┐   ┌───▼─────┐             │
 │                  │  Verify  │◀──│Generate │             │
-│                  │(Scoring) │   │(Gemini) │             │
+│                  │(Scoring) │   │  (LLM)  │             │
 │                  └────┬─────┘   └─────────┘             │
 │                       │                                  │
 │          ┌────────────┼────────────┐                     │
@@ -33,15 +33,15 @@
        │
        ▼
 ┌──────────────┐     ┌─────────────────────┐
-│   Response   │────▶│  DSPy Optimizer      │
-│  + Reward    │     │  (Stanford NLP)      │
+│   Response   │────▶│  Prompt Optimizer   │
+│  + Reward    │     │  (Few-Shot Tuning)  │
 └──────────────┘     └─────────────────────┘
 ```
 
 ## Prerequisites
 
 - **Python 3.11+**
-- **Gemini API Key** (free from [aistudio.google.com](https://aistudio.google.com))
+- **LLM API Key** (e.g., from [aistudio.google.com](https://aistudio.google.com))
 
 ## Setup
 
@@ -49,7 +49,7 @@
 
 ```bash
 cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
+# Edit .env and add your LLM API KEY
 ```
 
 ### 2. Install dependencies
@@ -90,26 +90,20 @@ curl -X POST http://localhost:8000/query \
 curl http://localhost:8000/health
 ```
 
-## Run Training / Prompt Optimization
+## Prompts & Optimization
+
+The system comes with an integrated **Prompt Optimizer** that automatically runs in the background.
 
 ```bash
-# DSPy prompt optimization (BootstrapFewShot)
+# To run optimization MANUALLY
 python -m src.training.trainer --mode optimize
-
-# Full agent evaluation
-python -m src.training.trainer --mode evaluate
-
-# Both
-python -m src.training.trainer --mode both
 ```
 
-The training loop uses DSPy's BootstrapFewShot optimizer (Stanford NLP) to automatically
-find optimal few-shot examples and prompt configurations. Rate limited to 12 req/min
-for Gemini's free tier.
+**Scheduled Optimization:** When the FastAPI server (`src/api/server.py`) is running, it spawns an `APScheduler` background job that automatically triggers the prompt optimizer every **6 hours** to extract high-quality demonstrations from the `session.db` and inject them as few-shot golden examples into subsequent LLM generate calls. This ensures continuous self-improvement without manual intervention.
 
 ## Results
 
-| Metric              | Baseline | After DSPy Optimization |
+| Metric              | Baseline | After Optimization      |
 |---------------------|----------|-------------------------|
 | Citation Accuracy   | —        | —                       |
 | Answer Faithfulness | —        | —                       |
@@ -129,12 +123,12 @@ pytest tests/ -v
 
 | Service              | Limit                  | Notes                        |
 |----------------------|------------------------|------------------------------|
-| Gemini 1.5 Flash     | 15 RPM, 1M tokens/day | Rate limiter set to 12 RPM   |
-| ChromaDB             | Unlimited (local)      | Embedded local database      |
-| Sentence Transformers| Unlimited (local)      | Runs on CPU                  |
-| DuckDuckGo Search    | ~100-200 req/hour      | No API key needed            |
+| LLM Provider         | API Limits Apply       | Rate limiter available       |
+| Vector Database      | Unlimited (local)      | Embedded local database      |
+| Embedding Model      | Unlimited (local)      | Runs on CPU                  |
+| Web Search Engine    | API Limits Apply       | No API key needed by default |
 
-The system includes a built-in rate limiter (5s between calls during training) to avoid hitting the Gemini free tier limit of 15 requests per minute.
+The system includes a built-in rate limiter (5s between calls during training) to avoid hitting strict LLM free tier request limits.
 
 ## Project Structure
 
@@ -149,8 +143,8 @@ rl-agentic-rag/
 │   │   └── nodes/
 │   │       ├── decompose.py   # Query decomposition
 │   │       ├── retrieve.py    # Hybrid BM25 + dense retrieval
-│   │       ├── rerank.py      # Cross-encoder reranking
-│   │       ├── generate.py    # Gemini answer generation
+│   │       ├── rerank.py      # Neural reranking
+│   │       ├── generate.py    # LLM answer generation
 │   │       └── verify.py      # Confidence scoring
 │   ├── ingestion/ingest.py    # Document ingestion pipeline
 │   ├── utils/
@@ -158,8 +152,8 @@ rl-agentic-rag/
 │   │   └── patch.py           # Windows compatibility
 │   └── training/
 │       ├── reward.py          # RL reward function
-│       ├── dspy_modules.py    # DSPy signatures & modules
-│       └── trainer.py         # DSPy optimization loop
+│       ├── dspy_modules.py    # Optimizer signatures & modules
+│       └── trainer.py         # Prompt optimization loop
 ├── tests/                     # pytest test suite
 ├── data/                      # Document storage
 └── chroma_db/                 # Local embedded vector database

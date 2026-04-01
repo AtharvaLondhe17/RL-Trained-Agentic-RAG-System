@@ -13,7 +13,10 @@ import os
 import shutil
 from pathlib import Path
 from typing import List
+import subprocess
+from contextlib import asynccontextmanager
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, UploadFile, File, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -26,9 +29,44 @@ from src.ingestion.ingest import ingest_directory
 
 logger = logging.getLogger(__name__)
 
+# ── Scheduled Optimizer Job ──────────────────────────────────────────
+
+def run_dspy_optimizer_job():
+    """Run the DSPy optimization script in a background subprocess."""
+    logger.info("Starting scheduled DSPy optimizer job...")
+    try:
+        # We run it in a subprocess so it doesn't block the ASGI event loop
+        # and runs in complete isolation.
+        result = subprocess.run(
+            ["python", "-m", "src.training.trainer", "--mode", "optimize"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            logger.info("DSPy optimizer job completed automatically.")
+        else:
+            logger.error("DSPy optimizer job failed. Error:\n%s", result.stderr)
+    except Exception as e:
+        logger.error("DSPy optimizer job crashed: %s", e)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Spin up APScheduler for background training
+    scheduler = BackgroundScheduler()
+    # Runs the optimizer every 6 hours automatically
+    scheduler.add_job(run_dspy_optimizer_job, 'interval', hours=6)
+    scheduler.start()
+    logger.info("Background DSPy optimizer scheduled to run every 6 hours.")
+    
+    yield  # Normal FastAPI operation
+    
+    # Tear down on server exit
+    scheduler.shutdown()
+    logger.info("Shutdown background scheduler.")
+
 # ── App setup ─────────────────────────────────────────────────────────
 
-app = FastAPI(title="RL Agentic RAG", version="1.0.0")
+app = FastAPI(title="RL Agentic RAG", version="1.0.0", lifespan=lifespan)
 
 # CORS middleware
 app.add_middleware(
